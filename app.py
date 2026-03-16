@@ -87,35 +87,39 @@ def from_json_filter(value):
 
 # ── Database init ────────────────────────────────────────────────────────────
 def init_database():
-    serial = 'SERIAL' if DB_TYPE == 'postgresql' else 'INTEGER'
-    pk     = 'PRIMARY KEY' if DB_TYPE == 'postgresql' else 'PRIMARY KEY AUTOINCREMENT'
-
-    ddl = f'''
-        CREATE TABLE IF NOT EXISTS resumes (
-            id                  {serial} {pk},
-            filename            TEXT NOT NULL,
-            name                TEXT,
-            email               TEXT,
-            phone               TEXT,
-            skills              TEXT,
-            current_location    TEXT,
-            hometown            TEXT,
-            education           TEXT,
-            companies           TEXT,
-            work_experience     TEXT,
-            years_of_experience INTEGER,
-            avg_work_duration   TEXT,
-            certifications      TEXT,
-            languages           TEXT,
-            projects            TEXT,
-            summary             TEXT,
-            raw_text            TEXT,
-            upload_date         TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    '''
-    with engine.connect() as conn:
-        conn.execute(text(ddl))
-        conn.commit()
+    try:
+        serial = 'SERIAL' if DB_TYPE == 'postgresql' else 'INTEGER'
+        pk     = 'PRIMARY KEY' if DB_TYPE == 'postgresql' else 'PRIMARY KEY AUTOINCREMENT'
+        ddl = f'''
+            CREATE TABLE IF NOT EXISTS resumes (
+                id                  {serial} {pk},
+                filename            TEXT NOT NULL,
+                name                TEXT,
+                email               TEXT,
+                phone               TEXT,
+                skills              TEXT,
+                current_location    TEXT,
+                hometown            TEXT,
+                education           TEXT,
+                companies           TEXT,
+                work_experience     TEXT,
+                years_of_experience INTEGER,
+                avg_work_duration   TEXT,
+                certifications      TEXT,
+                languages           TEXT,
+                projects            TEXT,
+                summary             TEXT,
+                raw_text            TEXT,
+                upload_date         TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        '''
+        with engine.connect() as conn:
+            conn.execute(text(ddl))
+            conn.commit()
+        logger.info(f"Database initialised OK ({DB_TYPE})")
+    except Exception as e:
+        logger.error(f"init_database FAILED: {e}")
+        raise  # crash loudly so you see it in the Render log
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 def allowed_file(filename):
