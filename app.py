@@ -87,39 +87,35 @@ def from_json_filter(value):
 
 # ── Database init ────────────────────────────────────────────────────────────
 def init_database():
-    try:
-        serial = 'SERIAL' if DB_TYPE == 'postgresql' else 'INTEGER'
-        pk     = 'PRIMARY KEY' if DB_TYPE == 'postgresql' else 'PRIMARY KEY AUTOINCREMENT'
-        ddl = f'''
-            CREATE TABLE IF NOT EXISTS resumes (
-                id                  {serial} {pk},
-                filename            TEXT NOT NULL,
-                name                TEXT,
-                email               TEXT,
-                phone               TEXT,
-                skills              TEXT,
-                current_location    TEXT,
-                hometown            TEXT,
-                education           TEXT,
-                companies           TEXT,
-                work_experience     TEXT,
-                years_of_experience INTEGER,
-                avg_work_duration   TEXT,
-                certifications      TEXT,
-                languages           TEXT,
-                projects            TEXT,
-                summary             TEXT,
-                raw_text            TEXT,
-                upload_date         TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        '''
-        with engine.connect() as conn:
-            conn.execute(text(ddl))
-            conn.commit()
-        logger.info(f"Database initialised OK ({DB_TYPE})")
-    except Exception as e:
-        logger.error(f"init_database FAILED: {e}")
-        raise  # crash loudly so you see it in the Render log
+    serial = 'SERIAL' if DB_TYPE == 'postgresql' else 'INTEGER'
+    pk     = 'PRIMARY KEY' if DB_TYPE == 'postgresql' else 'PRIMARY KEY AUTOINCREMENT'
+
+    ddl = f'''
+        CREATE TABLE IF NOT EXISTS resumes (
+            id                  {serial} {pk},
+            filename            TEXT NOT NULL,
+            name                TEXT,
+            email               TEXT,
+            phone               TEXT,
+            skills              TEXT,
+            current_location    TEXT,
+            hometown            TEXT,
+            education           TEXT,
+            companies           TEXT,
+            work_experience     TEXT,
+            years_of_experience INTEGER,
+            avg_work_duration   TEXT,
+            certifications      TEXT,
+            languages           TEXT,
+            projects            TEXT,
+            summary             TEXT,
+            raw_text            TEXT,
+            upload_date         TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    '''
+    with engine.connect() as conn:
+        conn.execute(text(ddl))
+        conn.commit()
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 def allowed_file(filename):
@@ -565,8 +561,152 @@ def delete_resume(resume_id):
     flash('Resume deleted.', 'success')
     return redirect(url_for('index'))
 
+# ── CSV Export ───────────────────────────────────────────────────────────────
+import csv
+import io
+from flask import make_response
+
+@app.route('/export/csv')
+def export_csv():
+    """Download all resumes as a CSV file"""
+    with engine.connect() as conn:
+        rows = conn.execute(text(
+            "SELECT id,name,email,phone,current_location,years_of_experience,"
+            "avg_work_duration,skills,companies,education,certifications,upload_date "
+            "FROM resumes ORDER BY upload_date DESC"
+        )).fetchall()
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['ID','Name','Email','Phone','Location','Years Exp','Avg Tenure',
+                     'Skills','Companies','Education','Certifications','Upload Date'])
+    for r in rows:
+        skills  = ', '.join(json.loads(r[7]))  if r[7]  else ''
+        cos     = ', '.join(json.loads(r[8]))  if r[8]  else ''
+        edu     = json.loads(r[9])  if r[9]  else []
+        edu_str = ', '.join(
+            (e['degree'] + ' - ' + e.get('institution','')) if isinstance(e, dict) else str(e)
+            for e in edu
+        )
+        certs   = ', '.join(json.loads(r[10])) if r[10] else ''
+        writer.writerow([r[0],r[1],r[2],r[3],r[4],r[5],r[6],skills,cos,edu_str,certs,r[11]])
+
+    response = make_response(output.getvalue())
+    response.headers['Content-Disposition'] = 'attachment; filename=resumes.csv'
+    response.headers['Content-Type'] = 'text/csv'
+    return response
+
+
+# ── JD Matching ───────────────────────────────────────────────────────────────
+@app.route('/match', methods=['GET', 'POST'])
+def jd_match():
+    """Score all resumes against a job description using Gemini AI"""
+    results = []
+    jd_text = ''
+
+    if request.method == 'POST':
+        jd_text = request.form.get('jd_text', '').strip()
+        if not jd_text or len(jd_text) < 30:
+            flash('Please paste a job description (at least 30 characters).', 'error')
+            return redirect(request.url)
+
+        with engine.connect() as conn:
+            rows = conn.execute(text(
+                "SELECT id, name, email, skills, work_experience, education, "
+                "summary, years_of_experience, companies FROM resumes ORDER BY upload_date DESC"
+            )).fetchall()
+
+        if not rows:
+            flash('No resumes in the database yet. Upload some first.', 'error')
+            return redirect(request.url)
+
+        for row in rows:
+            resume_snapshot = {
+                'id':    row[0],
+                'name':  row[1] or 'Unknown',
+                'email': row[2],
+                'skills':          json.loads(row[3])  if row[3]  else [],
+                'work_experience': json.loads(row[4])  if row[4]  else [],
+                'education':       json.loads(row[5])  if row[5]  else [],
+                'summary':         row[6],
+                'years_of_experience': row[7],
+                'companies':       json.loads(row[8])  if row[8]  else [],
+            }
+            score_data = _score_resume_against_jd(resume_snapshot, jd_text)
+            score_data['id']    = row[0]
+            score_data['name']  = row[1] or 'Unknown'
+            score_data['email'] = row[2]
+            score_data['years_of_experience'] = row[7]
+            score_data['skills'] = json.loads(row[3]) if row[3] else []
+            results.append(score_data)
+
+        # Sort by score descending
+        results.sort(key=lambda x: x.get('score', 0), reverse=True)
+
+    return render_template('match.html', results=results, jd_text=jd_text)
+
+
+def _score_resume_against_jd(resume, jd_text):
+    """Use Gemini to score a single resume against a job description"""
+    if not model:
+        return {'score': 0, 'matched_skills': [], 'missing_skills': [], 'verdict': 'AI unavailable'}
+
+    prompt = f"""
+You are a senior technical recruiter. Score this resume against the job description.
+
+JOB DESCRIPTION:
+{jd_text[:2000]}
+
+CANDIDATE:
+Name: {resume['name']}
+Skills: {', '.join(resume['skills'])}
+Experience: {resume['years_of_experience']} years
+Companies: {', '.join(resume['companies'])}
+Summary: {resume['summary'] or 'N/A'}
+Education: {json.dumps(resume['education'][:2])}
+Work History: {json.dumps(resume['work_experience'][:3])}
+
+Return ONLY a JSON object (no markdown):
+{{
+  "score": <integer 0-100>,
+  "matched_skills": ["skill1", "skill2"],
+  "missing_skills": ["skill3", "skill4"],
+  "strengths": ["one-line strength 1", "one-line strength 2"],
+  "gaps": ["one-line gap 1"],
+  "verdict": "Strong Match | Good Match | Partial Match | Weak Match"
+}}
+"""
+    try:
+        resp = model.generate_content(prompt)
+        if resp and resp.text:
+            jt = resp.text.strip()
+            if '```json' in jt: jt = jt.split('```json')[1].split('```')[0]
+            elif '```'    in jt: jt = jt.split('```')[1].split('```')[0]
+            return json.loads(jt.strip())
+    except Exception as e:
+        logger.error(f"JD scoring error for {resume['name']}: {e}")
+    return {'score': 0, 'matched_skills': [], 'missing_skills': [], 'strengths': [], 'gaps': [], 'verdict': 'Error'}
+
+
+# ── Initialise DB at module load — retries handle cold PostgreSQL on Render ──
+import time
+
+def _init_with_retry(retries=5, delay=3):
+    for attempt in range(1, retries + 1):
+        try:
+            init_database()
+            logger.info(f"DB ready ({DB_TYPE}) on attempt {attempt}")
+            return
+        except Exception as e:
+            logger.warning(f"DB init attempt {attempt}/{retries} failed: {e}")
+            if attempt < retries:
+                time.sleep(delay)
+            else:
+                logger.error("All DB init attempts failed — check DATABASE_URL in Render Environment tab")
+                raise
+
+_init_with_retry()
+
 # ── Entry point ───────────────────────────────────────────────────────────────
 if __name__ == '__main__':
-    init_database()
-    logger.info(f"AI Resume Parser started | DB: {DB_TYPE}")
     app.run(debug=False, host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
