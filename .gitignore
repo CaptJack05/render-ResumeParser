@@ -1,0 +1,38 @@
+# Secrets
+.env
+.env.*
+
+# Uploads (user files)
+uploads/
+*.pdf
+*.docx
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.Python
+*.egg-info/
+dist/
+build/
+
+# Virtual envs
+venv/
+.venv/
+env/
+
+# Database (use PostgreSQL on Render)
+*.db
+*.sqlite3
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

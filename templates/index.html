@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — ResumeAI{% endblock %}
+
+{% block content %}
+<div class="page-hero">
+  <div class="hero-text">
+    <h1 class="hero-title">Resume<span class="accent">AI</span></h1>
+    <p class="hero-sub">Parse, analyse and search resumes in seconds using Gemini AI.</p>
+    <div class="hero-actions">
+      <a href="{{ url_for('upload_file') }}" class="btn btn--primary">Upload Resume</a>
+      <a href="{{ url_for('search') }}" class="btn btn--ghost">Search Candidates</a>
+    </div>
+  </div>
+  <div class="hero-stat-block">
+    <div class="big-stat">
+      <span class="big-num">{{ total }}</span>
+      <span class="big-label">Resumes Parsed</span>
+    </div>
+  </div>
+</div>
+
+<!-- Stats row -->
+<section class="section">
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-icon">📄</div>
+      <div class="stat-body">
+        <div class="stat-num">{{ total }}</div>
+        <div class="stat-label">Total Resumes</div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">🤖</div>
+      <div class="stat-body">
+        <div class="stat-num">Gemini</div>
+        <div class="stat-label">AI Engine</div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">🗄️</div>
+      <div class="stat-body">
+        <div class="stat-num">Live</div>
+        <div class="stat-label">Database</div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">⚡</div>
+      <div class="stat-body">
+        <div class="stat-num">&lt;5s</div>
+        <div class="stat-label">Parse Time</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Top skills -->
+{% if top_skills %}
+<section class="section">
+  <h2 class="section-title">Top Skills in Pool</h2>
+  <div class="skills-bar-list">
+    {% set max_count = top_skills[0][1] if top_skills else 1 %}
+    {% for skill, count in top_skills %}
+    <div class="skill-bar-row">
+      <span class="skill-bar-label">{{ skill }}</span>
+      <div class="skill-bar-track">
+        <div class="skill-bar-fill" style="width: {{ (count / max_count * 100)|int }}%"></div>
+      </div>
+      <span class="skill-bar-count">{{ count }}</span>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+<!-- Recent resumes -->
+{% if recent %}
+<section class="section">
+  <div class="section-header">
+    <h2 class="section-title">Recent Uploads</h2>
+    <a href="{{ url_for('search') }}" class="link-subtle">View all →</a>
+  </div>
+  <div class="card-grid">
+    {% for r in recent %}
+    <a href="{{ url_for('view_resume', resume_id=r[0]) }}" class="resume-card">
+      <div class="resume-card__avatar">{{ r[1][0].upper() if r[1] else '?' }}</div>
+      <div class="resume-card__body">
+        <div class="resume-card__name">{{ r[1] or 'Unknown' }}</div>
+        <div class="resume-card__email">{{ r[2] or '—' }}</div>
+        {% if r[3] %}
+        <div class="resume-card__exp">{{ r[3] }} yr{{ 's' if r[3] != 1 else '' }} experience</div>
+        {% endif %}
+      </div>
+      <div class="resume-card__arrow">→</div>
+    </a>
+    {% endfor %}
+  </div>
+</section>
+{% else %}
+<section class="section empty-state">
+  <div class="empty-icon">📭</div>
+  <h3>No resumes yet</h3>
+  <p>Upload your first resume to get started.</p>
+  <a href="{{ url_for('upload_file') }}" class="btn btn--primary">Upload Now</a>
+</section>
+{% endif %}
+{% endblock %}

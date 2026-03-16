@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block title %}Search — ResumeAI{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">Search Candidates</h1>
+  <p class="page-sub">Filter by name, skill, or years of experience.</p>
+</div>
+
+<!-- Search form -->
+<form method="GET" action="{{ url_for('search') }}" class="search-form">
+  <div class="search-row">
+    <div class="search-field search-field--wide">
+      <label class="field-label">Name / Company / Keyword</label>
+      <input type="text" name="q" value="{{ query }}" placeholder="e.g. John, Google, Python developer" class="field-input">
+    </div>
+    <div class="search-field">
+      <label class="field-label">Skill</label>
+      <input type="text" name="skill" value="{{ skill_filter }}" placeholder="e.g. React" class="field-input">
+    </div>
+    <div class="search-field search-field--narrow">
+      <label class="field-label">Min. Experience (yrs)</label>
+      <input type="number" name="experience" value="{{ experience_filter }}" placeholder="e.g. 3" min="0" max="40" class="field-input">
+    </div>
+    <button type="submit" class="btn btn--primary search-btn">Search</button>
+  </div>
+</form>
+
+<!-- Quick skill chips -->
+<div class="chip-row">
+  {% for sk in ['Python','React','Java','AWS','Node.js','Machine Learning','Docker','SQL'] %}
+  <a href="{{ url_for('search', skill=sk) }}" class="chip {% if skill_filter == sk %}chip--active{% endif %}">{{ sk }}</a>
+  {% endfor %}
+</div>
+
+<!-- Results -->
+{% if query or skill_filter or experience_filter %}
+  <div class="results-header">
+    <span class="results-count">{{ results|length }} result{{ 's' if results|length != 1 }}</span>
+    {% if query or skill_filter or experience_filter %}
+    <a href="{{ url_for('search') }}" class="link-subtle">Clear filters</a>
+    {% endif %}
+  </div>
+
+  {% if results %}
+  <div class="results-table-wrap">
+    <table class="results-table">
+      <thead>
+        <tr>
+          <th>Candidate</th>
+          <th>Contact</th>
+          <th>Companies</th>
+          <th>Experience</th>
+          <th>Skills (top 4)</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in results %}
+        <tr class="results-row">
+          <td>
+            <div class="tbl-name">
+              <div class="tbl-avatar">{{ r[2][0].upper() if r[2] else '?' }}</div>
+              <span>{{ r[2] or 'Unknown' }}</span>
+            </div>
+          </td>
+          <td>
+            <div class="tbl-contact">
+              {% if r[3] %}<div>{{ r[3] }}</div>{% endif %}
+              {% if r[4] %}<div class="muted">{{ r[4] }}</div>{% endif %}
+            </div>
+          </td>
+          <td>
+            {% set cos = r[9]|from_json %}
+            <div class="tbl-companies">
+              {% for c in cos[:2] %}<span class="tag">{{ c }}</span>{% endfor %}
+            </div>
+          </td>
+          <td>
+            {% if r[11] %}
+            <span class="exp-badge">{{ r[11] }} yr{{ 's' if r[11] != 1 }}</span>
+            {% else %}<span class="muted">—</span>{% endif %}
+          </td>
+          <td>
+            {% set sk_list = r[5]|from_json %}
+            <div class="tbl-skills">
+              {% for s in sk_list[:4] %}<span class="skill-chip">{{ s }}</span>{% endfor %}
+            </div>
+          </td>
+          <td>
+            <a href="{{ url_for('view_resume', resume_id=r[0]) }}" class="btn btn--sm">View</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <div class="empty-icon">🔍</div>
+    <h3>No matches found</h3>
+    <p>Try a different keyword or skill.</p>
+  </div>
+  {% endif %}
+
+{% else %}
+<div class="empty-state">
+  <div class="empty-icon">🔎</div>
+  <h3>Start searching</h3>
+  <p>Enter a keyword, skill, or experience level above.</p>
+</div>
+{% endif %}
+{% endblock %}

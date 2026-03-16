@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% block title %}Upload Resume — ResumeAI{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">Upload Resume</h1>
+  <p class="page-sub">PDF, DOCX, or TXT — Gemini AI extracts everything in seconds.</p>
+</div>
+
+<div class="upload-layout">
+
+  <!-- Upload form -->
+  <div class="upload-card" id="uploadCard">
+    <form method="POST" enctype="multipart/form-data" id="uploadForm">
+      <div class="drop-zone" id="dropZone">
+        <div class="drop-icon">⬆</div>
+        <div class="drop-title">Drop your resume here</div>
+        <div class="drop-sub">or <label for="fileInput" class="drop-browse">browse files</label></div>
+        <div class="drop-formats">PDF · DOCX · TXT &nbsp;·&nbsp; Max 16 MB</div>
+        <input type="file" id="fileInput" name="file" accept=".pdf,.docx,.txt" class="file-input" required>
+      </div>
+
+      <!-- File preview -->
+      <div class="file-preview hidden" id="filePreview">
+        <div class="file-preview__icon" id="fileIcon">📄</div>
+        <div class="file-preview__info">
+          <div class="file-preview__name" id="fileName">—</div>
+          <div class="file-preview__size" id="fileSize">—</div>
+        </div>
+        <button type="button" class="file-preview__remove" id="removeFile">×</button>
+      </div>
+
+      <!-- Submit -->
+      <button type="submit" class="btn btn--primary btn--full" id="submitBtn" disabled>
+        <span id="submitText">Select a file first</span>
+        <span id="submitSpinner" class="spinner hidden"></span>
+      </button>
+    </form>
+  </div>
+
+  <!-- Info panel -->
+  <div class="info-panel">
+    <h3 class="info-title">What gets extracted?</h3>
+    <ul class="info-list">
+      <li><span class="info-dot"></span>Full name, email, phone</li>
+      <li><span class="info-dot"></span>Current location &amp; hometown</li>
+      <li><span class="info-dot"></span>Skills &amp; technologies</li>
+      <li><span class="info-dot"></span>Work experience with dates</li>
+      <li><span class="info-dot"></span>Education &amp; degrees</li>
+      <li><span class="info-dot"></span>Certifications</li>
+      <li><span class="info-dot"></span>Projects &amp; tech stacks</li>
+      <li><span class="info-dot"></span>Languages spoken</li>
+      <li><span class="info-dot"></span>AI-generated summary</li>
+    </ul>
+
+    <div class="info-note">
+      <strong>Powered by Google Gemini 2.5 Flash</strong><br>
+      Accurate extraction even from complex, multi-column PDF layouts.
+    </div>
+  </div>
+
+</div>
+
+<!-- Loading overlay -->
+<div class="loading-overlay hidden" id="loadingOverlay">
+  <div class="loading-box">
+    <div class="loading-ring"></div>
+    <div class="loading-text">Analysing resume with AI…</div>
+    <div class="loading-sub">This usually takes 3–8 seconds</div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const dropZone   = document.getElementById('dropZone');
+const fileInput  = document.getElementById('fileInput');
+const filePreview= document.getElementById('filePreview');
+const fileName   = document.getElementById('fileName');
+const fileSize   = document.getElementById('fileSize');
+const fileIcon   = document.getElementById('fileIcon');
+const removeBtn  = document.getElementById('removeFile');
+const submitBtn  = document.getElementById('submitBtn');
+const submitText = document.getElementById('submitText');
+const submitSpinner = document.getElementById('submitSpinner');
+const uploadForm = document.getElementById('uploadForm');
+const loadingOverlay = document.getElementById('loadingOverlay');
+
+const icons = {pdf:'📕', docx:'📘', txt:'📄'};
+
+function showFile(file) {
+  const ext = file.name.split('.').pop().toLowerCase();
+  fileIcon.textContent = icons[ext] || '📄';
+  fileName.textContent = file.name;
+  fileSize.textContent = (file.size / 1024).toFixed(1) + ' KB';
+  filePreview.classList.remove('hidden');
+  dropZone.classList.add('has-file');
+  submitBtn.disabled = false;
+  submitText.textContent = 'Parse Resume with AI';
+}
+
+function clearFile() {
+  fileInput.value = '';
+  filePreview.classList.add('hidden');
+  dropZone.classList.remove('has-file');
+  submitBtn.disabled = true;
+  submitText.textContent = 'Select a file first';
+}
+
+fileInput.addEventListener('change', () => { if (fileInput.files[0]) showFile(fileInput.files[0]); });
+removeBtn.addEventListener('click', clearFile);
+
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file) { fileInput.files = e.dataTransfer.files; showFile(file); }
+});
+
+uploadForm.addEventListener('submit', () => {
+  submitSpinner.classList.remove('hidden');
+  submitText.textContent = 'Parsing…';
+  submitBtn.disabled = true;
+  loadingOverlay.classList.remove('hidden');
+});
+</script>
+{% endblock %}

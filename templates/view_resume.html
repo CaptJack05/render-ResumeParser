@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+{% block title %}{{ resume.name or 'Resume' }} — ResumeAI{% endblock %}
+
+{% block content %}
+<div class="resume-layout">
+
+  <!-- Left: identity sidebar -->
+  <aside class="resume-sidebar">
+    <div class="sidebar-avatar">
+      {{ resume.name[0].upper() if resume.name else '?' }}
+    </div>
+    <h2 class="sidebar-name">{{ resume.name or 'Unknown' }}</h2>
+
+    {% if resume.summary %}
+    <p class="sidebar-summary">{{ resume.summary }}</p>
+    {% endif %}
+
+    <div class="sidebar-meta">
+      {% if resume.email %}
+      <div class="meta-row">
+        <span class="meta-icon">✉</span>
+        <a href="mailto:{{ resume.email }}" class="meta-val">{{ resume.email }}</a>
+      </div>
+      {% endif %}
+      {% if resume.phone %}
+      <div class="meta-row">
+        <span class="meta-icon">📞</span>
+        <span class="meta-val">{{ resume.phone }}</span>
+      </div>
+      {% endif %}
+      {% if resume.current_location %}
+      <div class="meta-row">
+        <span class="meta-icon">📍</span>
+        <span class="meta-val">{{ resume.current_location }}</span>
+      </div>
+      {% endif %}
+      {% if resume.hometown %}
+      <div class="meta-row">
+        <span class="meta-icon">🏠</span>
+        <span class="meta-val">{{ resume.hometown }}</span>
+      </div>
+      {% endif %}
+      {% if resume.years_of_experience %}
+      <div class="meta-row">
+        <span class="meta-icon">⏱</span>
+        <span class="meta-val">{{ resume.years_of_experience }} yr{{ 's' if resume.years_of_experience != 1 }} experience</span>
+      </div>
+      {% endif %}
+      {% if resume.avg_work_duration %}
+      <div class="meta-row">
+        <span class="meta-icon">📅</span>
+        <span class="meta-val">Avg. tenure: {{ resume.avg_work_duration }}</span>
+      </div>
+      {% endif %}
+    </div>
+
+    {% if resume.languages %}
+    <div class="sidebar-section">
+      <div class="sidebar-section-title">Languages</div>
+      <div class="chip-wrap">
+        {% for lang in resume.languages %}
+        <span class="chip chip--lang">{{ lang }}</span>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="sidebar-actions">
+      <a href="{{ url_for('search') }}" class="btn btn--ghost btn--full">← Back to Search</a>
+      <form method="POST" action="{{ url_for('delete_resume', resume_id=resume.id) }}"
+            onsubmit="return confirm('Delete this resume permanently?')">
+        <button type="submit" class="btn btn--danger btn--full">Delete</button>
+      </form>
+    </div>
+  </aside>
+
+  <!-- Right: detail panels -->
+  <div class="resume-detail">
+
+    <!-- Skills -->
+    {% if resume.skills %}
+    <div class="detail-card">
+      <h3 class="detail-title">Skills</h3>
+      <div class="skill-cloud">
+        {% for skill in resume.skills %}
+        <span class="skill-pill">{{ skill }}</span>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Work Experience -->
+    {% if resume.work_experience %}
+    <div class="detail-card">
+      <h3 class="detail-title">Work Experience</h3>
+      <div class="timeline">
+        {% for job in resume.work_experience %}
+        <div class="timeline-item">
+          <div class="timeline-dot"></div>
+          <div class="timeline-body">
+            <div class="timeline-title">
+              {{ job.position if job is mapping else job }}
+              {% if job is mapping and job.company %}
+              <span class="timeline-company"> @ {{ job.company }}</span>
+              {% endif %}
+            </div>
+            {% if job is mapping and job.duration %}
+            <div class="timeline-duration">{{ job.duration }}</div>
+            {% endif %}
+            {% if job is mapping and job.description %}
+            <div class="timeline-desc">{{ job.description }}</div>
+            {% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Education -->
+    {% if resume.education %}
+    <div class="detail-card">
+      <h3 class="detail-title">Education</h3>
+      <div class="edu-list">
+        {% for edu in resume.education %}
+        <div class="edu-item">
+          {% if edu is mapping %}
+          <div class="edu-degree">{{ edu.degree }}{% if edu.field %} in {{ edu.field }}{% endif %}</div>
+          <div class="edu-inst">{{ edu.institution }}{% if edu.year %} · {{ edu.year }}{% endif %}</div>
+          {% else %}
+          <div class="edu-degree">{{ edu }}</div>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Projects -->
+    {% if resume.projects %}
+    <div class="detail-card">
+      <h3 class="detail-title">Projects</h3>
+      <div class="project-list">
+        {% for proj in resume.projects %}
+        <div class="project-item">
+          {% if proj is mapping %}
+          <div class="project-name">{{ proj.name }}</div>
+          {% if proj.description %}
+          <div class="project-desc">{{ proj.description }}</div>
+          {% endif %}
+          {% if proj.technologies %}
+          <div class="project-tech">
+            {% for t in proj.technologies %}
+            <span class="skill-chip">{{ t }}</span>
+            {% endfor %}
+          </div>
+          {% endif %}
+          {% else %}
+          <div class="project-name">{{ proj }}</div>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Certifications -->
+    {% if resume.certifications %}
+    <div class="detail-card">
+      <h3 class="detail-title">Certifications</h3>
+      <ul class="cert-list">
+        {% for cert in resume.certifications %}
+        <li class="cert-item">✓ {{ cert }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+
+    <!-- Companies summary -->
+    {% if resume.companies %}
+    <div class="detail-card">
+      <h3 class="detail-title">Companies</h3>
+      <div class="chip-wrap">
+        {% for c in resume.companies %}
+        <span class="chip">{{ c }}</span>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Meta -->
+    <div class="detail-card detail-card--meta">
+      <div class="meta-pair">
+        <span class="muted">File</span>
+        <span>{{ resume.filename }}</span>
+      </div>
+      <div class="meta-pair">
+        <span class="muted">Parsed</span>
+        <span>{{ resume.upload_date }}</span>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
